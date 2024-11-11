@@ -99,7 +99,10 @@
 
         // Initialize Firebase
         const app = initializeApp(firebaseConfig);
-        window.db = getFirestore(app);
+        const db = getFirestore(app);
+
+        // Make Firestore functions available globally
+        window.db = db;
         window.addDoc = addDoc;
         window.collection = collection;
         window.getDocs = getDocs;
