@@ -74,10 +74,10 @@
     <div class="container">
         <img src="https://raw.githubusercontent.com/anandvip/qrs-resources/refs/heads/main/QRS-removebg-preview.png" alt="QRS Logo" class="logo">
         <h2>Employee Attendance</h2>
-        <input type="text" id="employee-name" placeholder="Enter your name" oninput="predictName()" autocomplete="off" /><br>
+        <input type="text" id="employee-name" placeholder="Enter your name" oninput="window.predictName()" autocomplete="off" /><br>
         <div id="name-suggestions" style="margin: 10px 0; text-align: left;"></div>
-        <button onclick="recordAttendance('check-in')">Check In</button>
-        <button onclick="recordAttendance('check-out')">Check Out</button>
+        <button onclick="window.recordAttendance('check-in')">Check In</button>
+        <button onclick="window.recordAttendance('check-out')">Check Out</button>
         <div id="attendance-log"></div>
         <div id="attendance-summary" style="margin-top: 20px; text-align: left;"></div>
     </div>
@@ -99,8 +99,10 @@
 
         // Initialize Firebase
         const app = initializeApp(firebaseConfig);
-        const db = getFirestore(app);
+        window.db = getFirestore(app);
+    </script>
 
+    <script>
         // JavaScript Code
         const employeeNames = ["John Doe", "Jane Smith", "Alice Johnson", "Robert Brown", "Emily Davis"];
 
@@ -132,26 +134,27 @@
                 return;
             }
 
+            console.log("Recording attendance for:", name);
             const now = new Date();
             const timeString = now.toLocaleTimeString();
             const dateString = now.toLocaleDateString();
 
             if (isMobileDevice()) {
                 if (confirm('Allow access to your camera to capture a selfie for attendance?')) {
-                    captureSelfie(type, name, dateString, timeString);
+                    window.captureSelfie(type, name, dateString, timeString);
                 }
             } else {
-                await logAttendanceToFirestore(type, name, dateString, timeString, null);
-                logAttendance(type, name, dateString, timeString, null);
-                updateSummary(name);
+                await window.logAttendanceToFirestore(type, name, dateString, timeString, null);
+                window.logAttendance(type, name, dateString, timeString, null);
+                await window.updateSummary(name);
             }
         }
 
-        function isMobileDevice() {
+        window.isMobileDevice = function() {
             return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
         }
 
-        function captureSelfie(type, name, dateString, timeString) {
+        window.captureSelfie = function(type, name, dateString, timeString) {
             navigator.mediaDevices.getUserMedia({ video: true })
                 .then(async function(stream) {
                     const video = document.createElement('video');
@@ -167,9 +170,9 @@
 
                         const imageUrl = canvas.toDataURL('image/png');
                         stream.getTracks().forEach(track => track.stop());
-                        await logAttendanceToFirestore(type, name, dateString, timeString, imageUrl);
-                        logAttendance(type, name, dateString, timeString, imageUrl);
-                        updateSummary(name);
+                        await window.logAttendanceToFirestore(type, name, dateString, timeString, imageUrl);
+                        window.logAttendance(type, name, dateString, timeString, imageUrl);
+                        await window.updateSummary(name);
                     }, 2000);
                 })
                 .catch(function(error) {
@@ -177,21 +180,22 @@
                 });
         }
 
-        async function logAttendanceToFirestore(type, name, dateString, timeString, imageUrl) {
+        window.logAttendanceToFirestore = async function(type, name, dateString, timeString, imageUrl) {
             try {
-                await addDoc(collection(db, "attendance"), {
+                await addDoc(collection(window.db, "attendance"), {
                     name: name,
                     type: type,
                     date: dateString,
                     time: timeString,
                     imageUrl: imageUrl
                 });
+                console.log("Attendance logged in Firestore:", name, type);
             } catch (e) {
                 console.error("Error adding document: ", e);
             }
         }
 
-        function logAttendance(type, name, dateString, timeString, imageUrl) {
+        window.logAttendance = function(type, name, dateString, timeString, imageUrl) {
             const logEntry = document.createElement('div');
             logEntry.className = 'log-entry';
 
@@ -209,11 +213,11 @@
             document.getElementById('attendance-log').appendChild(logEntry);
         }
 
-        async function updateSummary(name) {
+        window.updateSummary = async function(name) {
             const summaryContainer = document.getElementById('attendance-summary');
             summaryContainer.innerHTML = '';
 
-            const q = query(collection(db, "attendance"), where("name", "==", name));
+            const q = query(collection(window.db, "attendance"), where("name", "==", name));
             const querySnapshot = await getDocs(q);
             let checkInCount = 0;
             let checkOutCount = 0;
