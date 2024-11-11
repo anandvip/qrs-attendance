@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Employee Attendance</title>
+    <title>Employee Attendance System</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -68,26 +68,31 @@
             width: 150px;
             margin-bottom: 20px;
         }
+
+        .encouragement {
+            margin-top: 20px;
+            font-weight: bold;
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <img src="https://raw.githubusercontent.com/anandvip/qrs-resources/refs/heads/main/QRS-removebg-preview.png" alt="QRS Logo" class="logo">
         <h2>Employee Attendance</h2>
-        <input type="text" id="employee-name" placeholder="Enter your name" oninput="window.fetchAndDisplayAttendanceSummary()" autocomplete="off" /><br>
-        <div id="name-suggestions" style="margin: 10px 0; text-align: left;"></div>
-        <button onclick="window.recordAttendance('check-in')">Check In</button>
-        <button onclick="window.recordAttendance('check-out')">Check Out</button>
+        <input type="text" id="employee-name" placeholder="Enter your name" oninput="fetchAndDisplayAttendanceSummary()" autocomplete="off" /><br>
+        <button onclick="recordAttendance('check-in')">Check In</button>
+        <button onclick="recordAttendance('check-out')">Check Out</button>
         <div id="attendance-log"></div>
         <div id="attendance-summary" style="margin-top: 20px; text-align: left;"></div>
+        <div id="attendance-percentage" class="encouragement"></div>
     </div>
 
     <script type="module">
-        // Firebase SDK
+        // Import Firebase SDK
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
         import { getFirestore, collection, addDoc, getDocs, query, where } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
 
-        // Your web app's Firebase configuration
+        // Firebase configuration
         const firebaseConfig = {
             apiKey: "AIzaSyBvPYd8ksZLlfLWz2TUxk43ee9hZkMvxVU",
             authDomain: "qrs-sales.firebaseapp.com",
@@ -101,20 +106,27 @@
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
 
-        // Make Firestore functions available globally
-        window.db = db;
-        window.addDoc = addDoc;
-        window.collection = collection;
-        window.getDocs = getDocs;
-        window.query = query;
-        window.where = where;
-    </script>
+        // Employee names
+        const employeeNames = ["Jyoti Arora", "Joe", "Vipul", "Arvind", "Harry", "Gitanjali"];
 
-    <script>
-        // JavaScript Code
-        const employeeNames = ["John Doe", "Jane Smith", "Alice Johnson", "Robert Brown", "Emily Davis"];
+        // Calculate working days assuming a 6-day work week
+        const TOTAL_WORKING_DAYS = (() => {
+            const year = new Date().getFullYear();
+            let totalDays = 0;
+            for (let month = 0; month < 12; month++) {
+                const daysInMonth = new Date(year, month + 1, 0).getDate();
+                for (let day = 1; day <= daysInMonth; day++) {
+                    const currentDay = new Date(year, month, day).getDay();
+                    if (currentDay !== 0) { // Skip Sundays
+                        totalDays++;
+                    }
+                }
+            }
+            return totalDays;
+        })();
 
-        window.predictName = function() {
+        // Predict name suggestions
+        function predictName() {
             const input = document.getElementById('employee-name').value.toLowerCase();
             const suggestionsContainer = document.getElementById('name-suggestions');
             suggestionsContainer.innerHTML = '';
@@ -129,14 +141,15 @@
                     suggestion.onclick = () => {
                         document.getElementById('employee-name').value = name;
                         suggestionsContainer.innerHTML = '';
-                        window.fetchAndDisplayAttendanceSummary();
+                        fetchAndDisplayAttendanceSummary();
                     };
                     suggestionsContainer.appendChild(suggestion);
                 });
             }
         }
 
-        window.recordAttendance = async function(type) {
+        // Record attendance
+        async function recordAttendance(type) {
             const name = document.getElementById('employee-name').value.trim();
             if (!name) {
                 alert('Please enter your name');
@@ -147,108 +160,65 @@
             const now = new Date();
             const timeString = now.toLocaleTimeString();
             const dateString = now.toLocaleDateString();
+            const year = now.getFullYear();
 
-            if (isMobileDevice()) {
-                if (confirm('Allow access to your camera to capture a selfie for attendance?')) {
-                    window.captureSelfie(type, name, dateString, timeString);
-                }
-            } else {
-                await window.logAttendanceToFirestore(type, name, dateString, timeString, null);
-                window.logAttendance(type, name, dateString, timeString, null);
-                await window.updateSummary(name);
-            }
-        }
-
-        window.isMobileDevice = function() {
-            return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-        }
-
-        window.captureSelfie = function(type, name, dateString, timeString) {
-            navigator.mediaDevices.getUserMedia({ video: true })
-                .then(async function(stream) {
-                    const video = document.createElement('video');
-                    video.srcObject = stream;
-                    video.play();
-
-                    setTimeout(async () => {
-                        const canvas = document.createElement('canvas');
-                        canvas.width = video.videoWidth;
-                        canvas.height = video.videoHeight;
-                        const context = canvas.getContext('2d');
-                        context.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-                        const imageUrl = canvas.toDataURL('image/png');
-                        stream.getTracks().forEach(track => track.stop());
-                        await window.logAttendanceToFirestore(type, name, dateString, timeString, imageUrl);
-                        window.logAttendance(type, name, dateString, timeString, imageUrl);
-                        await window.updateSummary(name);
-                    }, 2000);
-                })
-                .catch(function(error) {
-                    alert('Unable to access camera: ' + error);
-                });
-        }
-
-        window.logAttendanceToFirestore = async function(type, name, dateString, timeString, imageUrl) {
             try {
-                await window.addDoc(window.collection(window.db, "attendance"), {
-                    name: name,
+                const attendanceRef = collection(db, "attendance", name, year.toString());
+                await addDoc(attendanceRef, {
                     type: type,
                     date: dateString,
-                    time: timeString,
-                    imageUrl: imageUrl
+                    time: timeString
                 });
-                console.log("Attendance logged in Firestore:", name, type);
+                console.log("Attendance logged in Firestore for year", year, "for employee", name);
+                fetchAndDisplayAttendanceSummary();
             } catch (e) {
                 console.error("Error adding document: ", e);
             }
         }
 
-        window.logAttendance = function(type, name, dateString, timeString, imageUrl) {
-            const logEntry = document.createElement('div');
-            logEntry.className = 'log-entry';
+        // Fetch and display attendance summary
+        async function fetchAndDisplayAttendanceSummary() {
+            const name = document.getElementById('employee-name').value.trim();
+            const year = new Date().getFullYear();
+            if (!name) return;
 
-            if (imageUrl) {
-                const thumbnail = document.createElement('img');
-                thumbnail.className = 'thumbnail';
-                thumbnail.src = imageUrl;
-                logEntry.appendChild(thumbnail);
-            }
-
-            const logText = document.createElement('span');
-            logText.textContent = `${name} ${type === 'check-in' ? 'checked in' : 'checked out'} on ${dateString} at ${timeString}`;
-            logEntry.appendChild(logText);
-            
-            document.getElementById('attendance-log').appendChild(logEntry);
-        }
-
-        window.updateSummary = async function(name) {
             const summaryContainer = document.getElementById('attendance-summary');
             summaryContainer.innerHTML = '';
 
-            const q = window.query(window.collection(window.db, "attendance"), window.where("name", "==", name));
-            const querySnapshot = await window.getDocs(q);
-            let checkInCount = 0;
-            let checkOutCount = 0;
+            try {
+                const attendanceRef = collection(db, "attendance", name, year.toString());
+                const q = query(attendanceRef);
+                const querySnapshot = await getDocs(q);
 
-            querySnapshot.forEach((doc) => {
-                if (doc.data().type === 'check-in') {
-                    checkInCount++;
-                } else if (doc.data().type === 'check-out') {
-                    checkOutCount++;
+                let checkInCount = 0;
+                querySnapshot.forEach((doc) => {
+                    if (doc.data().type === 'check-in') {
+                        checkInCount++;
+                    }
+                });
+
+                const attendancePercentage = ((checkInCount / TOTAL_WORKING_DAYS) * 100).toFixed(2);
+                const summaryText = `${name} has checked in ${checkInCount} times in ${year}.`;
+                summaryContainer.textContent = summaryText;
+
+                const encouragementContainer = document.getElementById('attendance-percentage');
+                encouragementContainer.innerHTML = `${name}'s Attendance Percentage: ${attendancePercentage}%`;
+
+                if (attendancePercentage >= 90) {
+                    encouragementContainer.innerHTML += "<br>Great job! Keep up the excellent attendance.";
+                } else if (attendancePercentage >= 75) {
+                    encouragementContainer.innerHTML += "<br>Good effort! Let's aim for even more consistency.";
+                } else {
+                    encouragementContainer.innerHTML += "<br>Let's try to improve your attendance. Consistency is key!";
                 }
-            });
-
-            const summaryText = `${name} has checked in ${checkInCount} times and checked out ${checkOutCount} times.`;
-            summaryContainer.textContent = summaryText;
-        }
-
-        window.fetchAndDisplayAttendanceSummary = function() {
-            const name = document.getElementById('employee-name').value.trim();
-            if (name) {
-                window.updateSummary(name);
+            } catch (e) {
+                console.error("Error fetching attendance: ", e);
             }
         }
+
+        // Attach functions to window for global use
+        window.recordAttendance = recordAttendance;
+        window.fetchAndDisplayAttendanceSummary = fetchAndDisplayAttendanceSummary;
     </script>
 </body>
 </html>
