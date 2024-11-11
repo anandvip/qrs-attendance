@@ -74,7 +74,7 @@
     <div class="container">
         <img src="https://raw.githubusercontent.com/anandvip/qrs-resources/refs/heads/main/QRS-removebg-preview.png" alt="QRS Logo" class="logo">
         <h2>Employee Attendance</h2>
-        <input type="text" id="employee-name" placeholder="Enter your name" oninput="window.predictName()" autocomplete="off" /><br>
+        <input type="text" id="employee-name" placeholder="Enter your name" oninput="window.fetchAndDisplayAttendanceSummary()" autocomplete="off" /><br>
         <div id="name-suggestions" style="margin: 10px 0; text-align: left;"></div>
         <button onclick="window.recordAttendance('check-in')">Check In</button>
         <button onclick="window.recordAttendance('check-out')">Check Out</button>
@@ -129,6 +129,7 @@
                     suggestion.onclick = () => {
                         document.getElementById('employee-name').value = name;
                         suggestionsContainer.innerHTML = '';
+                        window.fetchAndDisplayAttendanceSummary();
                     };
                     suggestionsContainer.appendChild(suggestion);
                 });
@@ -240,6 +241,13 @@
 
             const summaryText = `${name} has checked in ${checkInCount} times and checked out ${checkOutCount} times.`;
             summaryContainer.textContent = summaryText;
+        }
+
+        window.fetchAndDisplayAttendanceSummary = function() {
+            const name = document.getElementById('employee-name').value.trim();
+            if (name) {
+                window.updateSummary(name);
+            }
         }
     </script>
 </body>
