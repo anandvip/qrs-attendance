@@ -104,7 +104,7 @@
         // JavaScript Code
         const employeeNames = ["John Doe", "Jane Smith", "Alice Johnson", "Robert Brown", "Emily Davis"];
 
-        function predictName() {
+        window.predictName = function() {
             const input = document.getElementById('employee-name').value.toLowerCase();
             const suggestionsContainer = document.getElementById('name-suggestions');
             suggestionsContainer.innerHTML = '';
@@ -125,7 +125,7 @@
             }
         }
 
-        async function recordAttendance(type) {
+        window.recordAttendance = async function(type) {
             const name = document.getElementById('employee-name').value.trim();
             if (!name) {
                 alert('Please enter your name');
