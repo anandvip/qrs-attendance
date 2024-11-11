@@ -100,6 +100,11 @@
         // Initialize Firebase
         const app = initializeApp(firebaseConfig);
         window.db = getFirestore(app);
+        window.addDoc = addDoc;
+        window.collection = collection;
+        window.getDocs = getDocs;
+        window.query = query;
+        window.where = where;
     </script>
 
     <script>
@@ -182,7 +187,7 @@
 
         window.logAttendanceToFirestore = async function(type, name, dateString, timeString, imageUrl) {
             try {
-                await addDoc(collection(window.db, "attendance"), {
+                await window.addDoc(window.collection(window.db, "attendance"), {
                     name: name,
                     type: type,
                     date: dateString,
@@ -217,8 +222,8 @@
             const summaryContainer = document.getElementById('attendance-summary');
             summaryContainer.innerHTML = '';
 
-            const q = query(collection(window.db, "attendance"), where("name", "==", name));
-            const querySnapshot = await getDocs(q);
+            const q = window.query(window.collection(window.db, "attendance"), window.where("name", "==", name));
+            const querySnapshot = await window.getDocs(q);
             let checkInCount = 0;
             let checkOutCount = 0;
 
